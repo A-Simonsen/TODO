@@ -72,10 +72,17 @@ namespace TodoFinder
                 }
             }
 
-            // Display final results and determine exit code
+            // ... after the scanning loop ...
+
             PrintFinalResults(todoCount, ref exitCode);
 
-            // Wait for user input before exiting (useful for debugging)
+            // If the build failed, exit immediately for CI/CD
+            if (exitCode != 0)
+            {
+                Environment.Exit(exitCode);
+            }
+
+            // Otherwise, if the build passed, wait for the user to see the green message
             Console.WriteLine("Press any key to exit.");
             Console.ReadKey();
             Environment.Exit(exitCode);

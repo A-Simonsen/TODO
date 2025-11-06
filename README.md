@@ -76,11 +76,19 @@ Scan complete. Found 2 TODO items!
 **find-todos.bat** (in your solution root):
 ```cmd
 @echo off
-echo Scanning for TODOs...
-set TODO_PATH=C:\Users\alexs\source\repos\A-Simonsen\TODO
-dotnet add reference "%TODO_PATH%\TodoFinder\TodoFinder.csproj"
-dotnet run --project "%TODO_PATH%\TodoFinder\TodoFinder.csproj"
-dotnet remove reference "%TODO_PATH%\TodoFinder\TodoFinder.csproj"
+echo ========================================
+echo TODO Finder - Scanning for TODOs...
+echo ========================================
+echo.
+
+cd /d "%~dp0"
+dotnet run --project TodoAttribute.Sol\TodoFinder\TodoFinder.csproj
+
+echo.
+echo ========================================
+echo Press any key to exit...
+pause >nul
+move reference "%TODO_PATH%\TodoFinder\TodoFinder.csproj"
 pause
 ```
 
