@@ -88,8 +88,6 @@ echo.
 echo ========================================
 echo Press any key to exit...
 pause >nul
-move reference "%TODO_PATH%\TodoFinder\TodoFinder.csproj"
-pause
 ```
 
 ### Option 3: Quick Search in IDE
