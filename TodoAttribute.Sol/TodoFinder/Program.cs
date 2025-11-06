@@ -1,24 +1,30 @@
-﻿using Todo.Attribute;
+﻿// 1. Make sure this 'using' matches your attribute's namespace
 using System;
-using System.IO;
 using System.Reflection;
-using System.Linq;
+using Todo.Attribute;
+using YourProjectName.Attributes;
+// using System.IO; // Not needed
+// using System.Linq; // Not needed
 
 namespace TodoFinder
 {
     class Program
     {
+        // 2. We add BindingFlags to be more efficient.
+        // This tells Reflection to get public, non-public, instance, and static members,
+        // but ONLY the ones declared in this type (not inherited).
+        private const BindingFlags bindingFlags = BindingFlags.Public |
+                                                  BindingFlags.NonPublic |
+                                                  BindingFlags.Instance |
+                                                  BindingFlags.Static |
+                                                  BindingFlags.DeclaredOnly;
         static void Main(string[] args)
         {
             Console.WriteLine("Starting TODO Finder...");
+            Console.WriteLine("---------------------------------");
 
-            /// Get all assemblies in the current domain.
             var allAssemblies = AppDomain.CurrentDomain.GetAssemblies();
-
-            /// Get the executing assembly name
             string finderAssemblyName = Assembly.GetExecutingAssembly().GetName().Name;
-
-            /// Counts the number of TODOs found
             int todoCount = 0;
 
             foreach (Assembly assemblyToScan in allAssemblies)
@@ -47,8 +53,8 @@ namespace TodoFinder
                             PrintTodo($"[CLASS] {type.Name}", classTodo);
                         }
 
-                        // Scan methods
-                        foreach (MethodInfo method in type.GetMethods())
+                        // 3. Scan methods using our efficient bindingFlags
+                        foreach (MethodInfo method in type.GetMethods(bindingFlags))
                         {
                             var methodTodo = method.GetCustomAttribute<TodoAttribute>();
                             if (methodTodo != null)
@@ -57,32 +63,70 @@ namespace TodoFinder
                                 PrintTodo($"  [METHOD] {type.Name}.{method.Name}()", methodTodo);
                             }
                         }
+
+                        // 4. ADDITION: Scan properties
+                        foreach (PropertyInfo prop in type.GetProperties(bindingFlags))
+                        {
+                            var propTodo = prop.GetCustomAttribute<TodoAttribute>();
+                            if (propTodo != null)
+                            {
+                                todoCount++;
+                                PrintTodo($"  [PROPERTY] {type.Name}.{prop.Name}", propTodo);
+                            }
+                        }
+
+                        // 5. ADDITION: Scan constructors
+                        foreach (ConstructorInfo ctor in type.GetConstructors(bindingFlags))
+                        {
+                            var ctorTodo = ctor.GetCustomAttribute<TodoAttribute>();
+                            if (ctorTodo != null)
+                            {
+                                todoCount++;
+                                // .ctor is the standard name for a constructor in metadata
+                                PrintTodo($"  [CONSTRUCTOR] {type.Name}.ctor()", ctorTodo);
+                            }
+                        }
                     }
                 }
                 catch (ReflectionTypeLoadException ex)
                 {
-                    // This can happen, just log it and continue
                     Console.ForegroundColor = ConsoleColor.Red;
                     Console.WriteLine($"Could not scan types in {assemblyName}: {ex.Message}");
                     Console.ResetColor();
                 }
             }
             Console.WriteLine("---------------------------------");
-            Console.WriteLine($"Scan complete. Found {todoCount} TODO items.");
+
+            if (todoCount > 0)
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine($"Scan complete. Found {todoCount} TODO items! Build would fail.");
+                Console.ResetColor();
+
+                // 6. ADDITION: This is how you fail a build script.
+                // An exit code other than 0 signals an error.
+                Environment.Exit(1);
+            }
+            else
+            {
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.WriteLine("Scan complete. No TODO items found. Build passes!");
+                Console.ResetColor();
+            }
+
+            // We only reach ReadKey if the build passes.
+            Console.WriteLine("Press any key to exit.");
             Console.ReadKey();
         }
+
         static void PrintTodo(string location, TodoAttribute todo)
         {
             Console.ForegroundColor = ConsoleColor.Yellow;
             Console.WriteLine(location);
 
             Console.ResetColor();
-
-            // 1. We know "Message" always exists (from the constructor), so we print it first.
             Console.WriteLine($"  Message: {todo.Message}");
 
-            // 2. Get all other public properties that are declared *only* on our TodoAttribute class
-            //    (This skips properties from the base 'Attribute' class, like 'TypeId')
             var properties = typeof(TodoAttribute).GetProperties(
                 BindingFlags.Public |
                 BindingFlags.Instance |
@@ -90,36 +134,29 @@ namespace TodoFinder
 
             foreach (var prop in properties)
             {
-                // 3. We already printed Message, so skip it in this loop
                 if (prop.Name == "Message")
                 {
                     continue;
                 }
 
-                // 4. Get the value of the property (e.g., "Alex", 123, or null)
                 object? value = prop.GetValue(todo);
-
-                // 5. Check if the value is meaningful before printing
                 bool shouldPrint = value != null;
 
-                if (value is string strValue) // Check if it's a string
+                if (value is string strValue)
                 {
                     shouldPrint = !string.IsNullOrEmpty(strValue);
                 }
-                else if (value is int intValue) // Check if it's an int
+                else if (value is int intValue)
                 {
-                    // This checks against the default value we set in the attribute
                     shouldPrint = (intValue != -1);
                 }
 
-                // 6. If the value is not null or default, print its name and value
                 if (shouldPrint)
                 {
                     Console.WriteLine($"  {prop.Name}: {value}");
                 }
             }
-
-            Console.WriteLine(); // Add a blank line for spacing
+            Console.WriteLine();
         }
     }
 }
